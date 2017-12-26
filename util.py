@@ -1,14 +1,18 @@
 import tensorflow as tf
 from InceptionResNetv2 import inception_resnet_v2
 import numpy as np
+import os
 
 def load_model(sess,path):
 
-    x = tf.placeholder(shape=[None,299,299,3],dtype=tf.float32,name='input')
-    out = inception_resnet_v2(x)
+    dirname = os.path.dirname(__file__)
+    saver = tf.train.import_meta_graph(dirname + '/trained_params/model-20170512-110547.meta', clear_devices=True)
 
-    saver = tf.train.Saver()
-    saver.restore(sess, save_path=path)
+    saver.restore(sess, dirname + '/trained_params' + '/model-20170512-110547.ckpt-250000')
+
+    x = tf.get_default_graph().get_tensor_by_name('input')
+    out = tf.get_default_graph().get_tensor_by_name("embeddings:0")
+    # phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_train:0")
 
     return x,out
 

@@ -121,7 +121,6 @@ def inception_resnet_v2(inputs, is_training=True,
     """Creates the Inception Resnet V2 model.
     Args:
       inputs: a 4-D tensor of size [batch_size, height, width, 3].
-      num_classes: number of predicted classes.
       is_training: whether is training or not.
       dropout_keep_prob: float, the fraction to keep before final layer.
       reuse: whether or not the network and its variables should be reused. To be

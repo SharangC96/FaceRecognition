@@ -13,70 +13,73 @@ def load_model(sess):
 
     x = tf.get_default_graph().get_tensor_by_name('input:0') # input placeholder
     out = tf.get_default_graph().get_tensor_by_name("embeddings:0") # output tensor
-    # phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_train:0")
+    phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_train:0")
 
-    return x,out
+    return x,out,phase_train_placeholder
 
 def distance(a,b):
     return np.sqrt(np.sum(np.square(a-b)))
 
-def get_embedding(sess, input, output, image):
+def get_embedding(sess, input, output, image, phase_train_placeholder):
 
-    embedding = sess.run(output,feed_dict={input:image})
-    if(image.shape[0]==1):
-        return embedding.reshape(128)
+    embedding = sess.run(output,feed_dict={input:image,phase_train_placeholder:False})
 
     return embedding
 
-def create_dataset(sess, mtcnn, input, output, base_dir):
+def create_dataset(sess, mtcnn, input, output, base_dir, phase_train_placeholder):
 
     files = os.listdir(base_dir)
     batch_size = 50
 
-    names = []
-    images = []
     embeddings = None
     cnt = 1
     flag = 1
+
+    nrof_images = 0
+    for _ in files: nrof_images=nrof_images+1
+
+    names = [0]*nrof_images
+    images = [0]*batch_size
 
     for file in files:
         if os.path.isfile(os.path.join(base_dir,file)):
 
             name = file.split('_')[0]
-            image = misc.imread(os.path.join(base_dir,file))
+            image = np.array(misc.imread(os.path.join(base_dir,file)))
 
-            names = names.extend(name)
-            images.extend(image)
+            names[cnt-1] = name
+            images[cnt-1] = image
 
             if(cnt % batch_size == 0):
                 images = align_data(mtcnn, images, margin=0)
-                embedding_of_batch = get_embedding(sess,input,output,images)
+                embedding_of_batch = get_embedding(sess,input,output,images, phase_train_placeholder)
 
                 if(flag):
                     embeddings = embedding_of_batch
                     flag = 0
 
-                cnt = 0
+                else:
+                    embeddings = np.concatenate((embedding_of_batch,embeddings))
 
-                embeddings = np.concatenate((embedding_of_batch,embeddings))
-                images = []
+                cnt = 0
+                images = [0]*batch_size
 
             cnt = cnt +1
 
     if(cnt != 0):
         images = align_data(mtcnn, images, margin=0)
-        embedding_of_batch = get_embedding(sess, input, output, images)
+        embedding_of_batch = get_embedding(sess, input, output, images, phase_train_placeholder)
 
         if (flag):
             embeddings = embedding_of_batch
-
-        embeddings = np.concatenate((embedding_of_batch, embeddings))
+        else:
+            embeddings = np.concatenate((embeddings))
 
     return embeddings,np.array(names)
 
 def load_mtcnn():
 
-    print('Creating networks and loading parameters')
+    print('Creating networks and loading parameters MTCCN')
     with tf.Graph().as_default():
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=1.0)
         sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, log_device_placement=False))
@@ -93,13 +96,19 @@ def align_data(mtcnn, images, margin):
     factor = 0.709 # scale factor
 
     nrof_samples = len(images)
-    img_list = [None] * nrof_samples
+
+    i = 0
     for i in range(nrof_samples):
 
-        img = misc.imread(images[i])
+        img = images[i]
+
+        if(type(img)==int):
+            break
+
         img_size = np.asarray(img.shape)[0:2]
 
         bounding_boxes, _ = align.detect_face.detect_face(img, minsize, mtcnn[0], mtcnn[1], mtcnn[2], threshold, factor)
+
         det = np.squeeze(bounding_boxes[0,0:4])
         bb = np.zeros(4, dtype=np.int32)
         bb[0] = np.maximum(det[0]-margin/2, 0)
@@ -109,8 +118,13 @@ def align_data(mtcnn, images, margin):
         cropped = img[bb[1]:bb[3],bb[0]:bb[2],:]
         aligned = misc.imresize(cropped, (160, 160), interp='bilinear')
         prewhitened = prewhiten(aligned)
-        img_list[i] = prewhitened
-    images = np.stack(img_list)
+        images[i] = prewhitened
+
+    if(nrof_samples == 1):
+        return np.reshape(images[0],newshape=[1,160,160,3])
+    else:
+        images = np.stack(images[0:i])
+
     return images
 
 

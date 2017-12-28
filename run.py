@@ -1,6 +1,4 @@
 from Gallery import Gallery
 
-mygallery = Gallery('/images/','data/knn/',name='MyGallery',reuse= False)
-
-
-mygallery.recognize(image)
+gallery_dir = '/home/sharang/Pictures/Dataset'
+mygallery = Gallery(gallery_dir,name='MyGallery',reuse= False)

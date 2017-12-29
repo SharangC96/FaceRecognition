@@ -5,6 +5,9 @@ import util
 from sklearn.preprocessing import LabelEncoder
 import tensorflow as tf
 from scipy import misc
+import numpy as np
+
+
 class Gallery:
 
     sess = tf.Session()
@@ -42,12 +45,16 @@ class Gallery:
             self.encoder = joblib.load(enc_path)
 
 
-    def recognize(self, image_path):
+    def recognize(self, image_path, threshold=0.9):
 
         image = misc.imread(image_path)
         image = util.align_data(self.mtcnn,[image],0)
         this_embedding = util.get_embedding(self.sess,self.input, self.embedding, image,self.phase_train)
 
+        a,_ = self.clf.kneighbors(X=this_embedding,n_neighbors= 1)
+        a = a.reshape(-1)
+
         name = self.encoder.inverse_transform(self.clf.predict(this_embedding))
+        name[ a > threshold] = 'Cannot Recognize'
 
         return name

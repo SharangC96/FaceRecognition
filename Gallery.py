@@ -5,7 +5,6 @@ import util
 from sklearn.preprocessing import LabelEncoder
 import tensorflow as tf
 from scipy import misc
-import numpy as np
 
 
 class Gallery:
@@ -24,6 +23,7 @@ class Gallery:
             self.clf = KNeighborsClassifier(n_neighbors=1, weights='distance', p = 2, n_jobs= -1)
 
             x, y = util.create_dataset(self.sess, self.mtcnn, self.input, self.embedding, gallery_dir,self.phase_train)
+            print('Dataset Created\n','Input to KNN (X,y):',x.shape,' ',y.shape)
 
             self.encoder = LabelEncoder()
             self.encoder.fit(y)
@@ -43,7 +43,6 @@ class Gallery:
 
             enc_path =  os.path.join(self.path,'enc.joblib.pkl')
             self.encoder = joblib.load(enc_path)
-
 
     def recognize(self, image_path, threshold=0.9):
 

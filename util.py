@@ -28,27 +28,24 @@ def get_embedding(sess, input, output, image, phase_train_placeholder):
 
 def create_dataset(sess, mtcnn, input, output, base_dir, phase_train_placeholder):
 
-    files = os.listdir(base_dir)
-    batch_size = 50
+    batch_size = 100
 
     embeddings = None
-    cnt = 1
+    cnt = 0
     flag = 1
+    total_batches = 0
+    names = []
+    images = []
 
-    nrof_images = 0
-    for _ in files: nrof_images=nrof_images+1
+    for root, dirs, files in os.walk(base_dir):
+        for file in files:
 
-    names = [0]*nrof_images
-    images = [0]*batch_size
+            name = root.split('/')[-1]
+            image = np.array(misc.imread(os.path.join(root,file)))
 
-    for file in files:
-        if os.path.isfile(os.path.join(base_dir,file)):
-
-            name = file.split('_')[0]
-            image = np.array(misc.imread(os.path.join(base_dir,file)))
-
-            names[cnt-1] = name
-            images[cnt-1] = image
+            names.append(name)
+            images.append(image)
+            cnt = cnt + 1
 
             if(cnt % batch_size == 0):
                 images = align_data(mtcnn, images, margin=0)
@@ -59,21 +56,24 @@ def create_dataset(sess, mtcnn, input, output, base_dir, phase_train_placeholder
                     flag = 0
 
                 else:
-                    embeddings = np.concatenate((embedding_of_batch,embeddings))
+                    embeddings = np.concatenate((embeddings,embedding_of_batch))
 
                 cnt = 0
-                images = [0]*batch_size
+                images = []
 
-            cnt = cnt +1
+                print(total_batches+1,'Batch Processed')
+                total_batches  = total_batches +1
+
 
     if(cnt != 0):
         images = align_data(mtcnn, images, margin=0)
+        print('last batch- ',images.shape)
         embedding_of_batch = get_embedding(sess, input, output, images, phase_train_placeholder)
 
         if (flag):
             embeddings = embedding_of_batch
         else:
-            embeddings = np.concatenate((embeddings))
+            embeddings = np.concatenate((embeddings,embedding_of_batch))
 
     return embeddings,np.array(names)
 
@@ -97,13 +97,9 @@ def align_data(mtcnn, images, margin):
 
     nrof_samples = len(images)
 
-    i = 0
     for i in range(nrof_samples):
 
         img = images[i]
-
-        if(type(img)==int):
-            break
 
         img_size = np.asarray(img.shape)[0:2]
 
@@ -123,7 +119,7 @@ def align_data(mtcnn, images, margin):
     if(nrof_samples == 1):
         return np.reshape(images[0],newshape=[1,160,160,3])
     else:
-        images = np.stack(images[0:i])
+        images = np.stack(images)
 
     return images
 

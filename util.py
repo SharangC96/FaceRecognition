@@ -3,6 +3,8 @@ import numpy as np
 import os
 import align.detect_face
 from scipy import misc
+import pandas as pd
+from metric_learn import LMNN
 
 def load_model(sess):
 
@@ -23,12 +25,18 @@ def distance(a,b):
 def get_embedding(sess, input, output, image, phase_train_placeholder):
 
     embedding = sess.run(output,feed_dict={input:image,phase_train_placeholder:False})
-
     return embedding
 
 def create_dataset(sess, mtcnn, input, output, base_dir, phase_train_placeholder):
 
-    batch_size = 100
+    if(os.path.isfile(base_dir+'/data.csv')):
+        x = pd.read_csv(base_dir+'/data.csv')
+        y = x['name'].values
+        x = x.iloc[:,1:-1].values
+
+        return x,y
+
+    batch_size = 200
 
     embeddings = None
     cnt = 0
@@ -41,7 +49,10 @@ def create_dataset(sess, mtcnn, input, output, base_dir, phase_train_placeholder
         for file in files:
 
             name = root.split('/')[-1]
-            image = np.array(misc.imread(os.path.join(root,file)))
+            try:
+                image = np.array(misc.imread(os.path.join(root,file)))
+            except:
+                print('Cannot read .csv as image file!')
 
             names.append(name)
             images.append(image)
@@ -74,6 +85,10 @@ def create_dataset(sess, mtcnn, input, output, base_dir, phase_train_placeholder
             embeddings = embedding_of_batch
         else:
             embeddings = np.concatenate((embeddings,embedding_of_batch))
+
+    table = pd.DataFrame(embeddings)
+    table['name'] = names
+    table.to_csv(base_dir+'/data.csv')
 
     return embeddings,np.array(names)
 

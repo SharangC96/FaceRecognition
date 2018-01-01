@@ -4,8 +4,8 @@ from shutil import copyfile
 train_examples = 5
 base_dir = os.path.dirname(__file__)
 
-save_path = os.path.join(base_dir,'Datasets','train_data',str(train_examples))
-save_path_2 = os.path.join(base_dir,'Datasets','test_data',str(train_examples))
+save_path = os.path.join(base_dir,'Datasets','train_data'+'_'+str(train_examples))
+save_path_2 = os.path.join(base_dir,'Datasets','test_data'+'_'+str(train_examples))
 
 cnt = 0
 for a, b, c in os.walk(os.path.join(base_dir,'Datasets','lfw')):

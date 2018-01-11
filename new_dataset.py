@@ -1,7 +1,7 @@
 import os
 from shutil import copyfile
 
-train_examples = 5
+train_examples = 4
 base_dir = os.path.dirname(__file__)
 
 save_path = os.path.join(base_dir,'Datasets','train_data'+'_'+str(train_examples))
@@ -22,9 +22,12 @@ for a, b, c in os.walk(os.path.join(base_dir,'Datasets','lfw')):
         if not os.path.exists(dest2):
             os.makedirs(dest2)
 
+        i = 0
         for i in range(train_examples):
             copyfile(os.path.join(a, c[i]), os.path.join(dest, c[i]))
 
-        copyfile(os.path.join(a, c[train_examples]), os.path.join(dest2, c[train_examples]))
+        while(i<len(c)):
+            copyfile(os.path.join(a, c[i]), os.path.join(dest2, c[i]))
+            i = i+1
 
 print('No of unique faces:', cnt)

@@ -1,12 +1,11 @@
 import os
-from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neighbors import RadiusNeighborsClassifier
 from sklearn.externals import joblib
 from sklearn.preprocessing import LabelEncoder
 import util
 import tensorflow as tf
-from scipy import misc
+import matplotlib.pyplot as plt
 import numpy as np
-from metric_learn import LMNN
 
 class Gallery:
 
@@ -14,33 +13,27 @@ class Gallery:
     input, embedding, phase_train = util.load_model(sess)
     mtcnn = util.load_mtcnn()
 
-    def __init__(self, gallery_dir,name='MyGallery',reuse = False,use_lmnn = False):
+    def __init__(self, gallery_dir,name='MyGallery',reuse = False,r=1,p=2):
 
         self.path = os.path.join(os.path.dirname(__file__),'trained_params',name)
         self.clf = None
         self.encoder = None
-        self.use_lmnn = use_lmnn
         self.lmnn = None
 
         if(not reuse):
+            x, y = util.create_dataset(self.sess, self.mtcnn, self.input, self.embedding, gallery_dir, self.phase_train)
+            print('Dataset Created\n', 'Input to KNN (X,y):', x.shape)
 
-            self.clf = KNeighborsClassifier(n_neighbors=3, weights='distance', p = 2, n_jobs= -1)
-
-            x, y = util.create_dataset(self.sess, self.mtcnn, self.input, self.embedding, gallery_dir,self.phase_train)
-            print('Dataset Created\n','Input to KNN (X,y):',x.shape,' ',y.shape)
+            y_copy = y.copy()
+            y_copy.append('Cannot Recognize')
 
             self.encoder = LabelEncoder()
-            self.encoder.fit(y)
+            self.encoder.fit(y_copy)
 
-            y = self.encoder.transform(y)
+            outlier_label = self.encoder.transform(['Cannot Recognize'])
+            self.clf = RadiusNeighborsClassifier(radius=r,weights='distance',outlier_label=outlier_label,p=p)
 
-            if(use_lmnn):
-                self.lmnn = LMNN(k=3, max_iter=350, verbose=True, learn_rate=0.00002)
-                self.lmnn.fit(x,y)
-                joblib.dump(self.lmnn, os.path.join(self.path, 'lmnn.joblib.pkl'))
-                x = self.lmnn.transform(x)
-
-            self.clf.fit(x, y)
+            self.clf.fit(x, self.encoder.transform(y))
 
             if not os.path.exists(self.path):
                 os.makedirs(self.path)
@@ -56,20 +49,14 @@ class Gallery:
             enc_path =  os.path.join(self.path,'enc.joblib.pkl')
             self.encoder = joblib.load(enc_path)
 
-            if(use_lmnn):
-                lmnn_path = os.path.join(self.path,'lmnn.joblib.pkl')
-                self.lmnn = joblib.load(lmnn_path)
-
     def recognize_image(self, image_path):
 
-        image = misc.imread(image_path)
-        image = util.align_data(self.mtcnn,[image],0)
+        image = plt.imread(image_path)
+        image = util.align_data(self.mtcnn,[image],10)
         this_embedding = util.get_embedding(self.sess,self.input, self.embedding, image,self.phase_train)
 
-        if(self.use_lmnn):
-            this_embedding = self.lmnn.transform(this_embedding)
-
-        name = self.encoder.inverse_transform(self.clf.predict(this_embedding))
+        prediction = self.clf.predict(this_embedding)
+        name = self.encoder.inverse_transform(prediction)
 
         return name
 
@@ -77,13 +64,14 @@ class Gallery:
 
         x, y = util.create_dataset(self.sess, self.mtcnn, self.input, self.embedding, dir_path, self.phase_train)
 
-        if(self.use_lmnn):
-            x = self.lmnn.transform(x)
+        predicted_labels = self.clf.predict(x)
+        predicted_names = self.encoder.inverse_transform(predicted_labels)
+        acc = np.mean((predicted_names == y).astype(int))
+        cannot = np.mean((predicted_names == 'Cannot Recognize').astype(int))
+        far = 1 - acc - cannot
 
-        name = self.encoder.inverse_transform(self.clf.predict(x))
+        results ={'VAL': np.mean(acc)*100,
+                  'FAR':far*100,
+                  'Cannot Recognize': np.mean(cannot)*100}
 
-        len = name.shape[0]
-        cnt1 = np.sum(name == y)    #correct classifications
-        cnt2 = len - cnt1           #misclassification
-
-        return cnt1,cnt2
+        return results

@@ -22,7 +22,7 @@ class Gallery:
 
         if(not reuse):
             x, y = util.create_dataset(self.sess, self.mtcnn, self.input, self.embedding, gallery_dir, self.phase_train)
-            print('Dataset Created\n', 'Input to KNN (X,y):', x.shape)
+            print('Dataset Created\n', 'Input to RNN (X,y):', x.shape)
 
             y_copy = y.copy()
             y_copy.append('Cannot Recognize')

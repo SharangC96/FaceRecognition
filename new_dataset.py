@@ -25,8 +25,9 @@ for a, b, c in os.walk(os.path.join(base_dir,'Datasets','lfw')):
         i = 0
         for i in range(train_examples):
             copyfile(os.path.join(a, c[i]), os.path.join(dest, c[i]))
+        i=i+1
 
-        while(i<len(c)):
+        while((i<len(c)) and (i<2*train_examples)):
             copyfile(os.path.join(a, c[i]), os.path.join(dest2, c[i]))
             i = i+1
 

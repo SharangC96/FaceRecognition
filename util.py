@@ -30,7 +30,7 @@ def get_embedding(sess, input, output, image, phase_train_placeholder):
 
 def create_dataset(sess, mtcnn, input, output, base_dir, phase_train_placeholder):
 
-    if(os.path.isfile(base_dir+'/data.csv')):
+    if(os.path.exists(base_dir+'/data.csv')):
         x = pd.read_csv(base_dir+'/data.csv')
         y = x['name'].values
         x = x.iloc[:,1:-1].values
@@ -54,6 +54,9 @@ def create_dataset(sess, mtcnn, input, output, base_dir, phase_train_placeholder
                 image = np.array(misc.imread(os.path.join(root,file)))
             except:
                 print('Cannot read .csv as image file!')
+
+            if(len(image.shape)<3):
+                continue
 
             names.append(name)
             images.append(image)
@@ -111,7 +114,6 @@ def align_data(mtcnn, images, margin):
     factor = 0.709  # scale factor
 
     nrof_samples = len(images)
-
     for i in range(nrof_samples):
         img = images[i]
 
@@ -122,8 +124,13 @@ def align_data(mtcnn, images, margin):
         bounding_boxes, _ = align.detect_face.detect_face(img, minsize, mtcnn[0], mtcnn[1], mtcnn[2], threshold, factor)
         nrof_faces = bounding_boxes.shape[0]
 
+        if(nrof_faces == 0):
+            aligned = misc.imresize(img, (160, 160), interp='bilinear')
+            prewhitened = prewhiten(aligned)
+            images[i] = prewhitened
+            continue
+
         correct_face = np.zeros(nrof_faces)
-        correct_face2 = np.zeros(nrof_faces)
 
         for j in range(nrof_faces):
             det = np.squeeze(bounding_boxes[j, 0:4])
@@ -136,10 +143,8 @@ def align_data(mtcnn, images, margin):
             area = (bb[3]-bb[1])*(bb[2]-bb[0])
             dist = np.sum(np.square(img_center-crop_center))
             correct_face[j] = dist
-            correct_face2[j] = area
 
-        correct_face = np.argmin(correct_face)
-        correct_face2 = np.argmax(correct_face2)
+        correct_face = np.argmin(correct_face,axis=0)
 
         det = np.squeeze(bounding_boxes[correct_face, 0:4])
 
@@ -159,7 +164,6 @@ def align_data(mtcnn, images, margin):
         images = np.stack(images)
 
     return images
-
 
 def prewhiten(x):
     mean = np.mean(x)
